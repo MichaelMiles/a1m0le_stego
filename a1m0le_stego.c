@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "image.h"
 
 int naive_hide();
 static char mod_last_bit(char original, char to);
@@ -70,22 +71,15 @@ int naive_hide(){
      printf("[ERROR] filename is not entered, terminating........\n");
      return -1;
    }
-   File* imgfile = fopen(img_name, "rb");
-   if (imgfile == NULL){
-     printf("[ERROR] Unbale to read the file you just provided\n");
-     return -1;
-   }
    printf("|---------------------   READING FILE   ------------------------- |\n");
    printf("|==========");
-   fseek(imgfile, 0, SEEK_END);
-   int imgsize = ftell(imgfile); // the size of the entire image
+   image im = load_image(img_name);
+   int imgsize = im.w*im.h*im.c; // the size of the entire image
    if (imgsize < 12+8*(hfsize)){    // if img has total bytes less than 6+8*(4+4+hideen_size)+6, then cancel all operations and print error message
      printf("[ERROR] Image file is not large enough to store the data\n");
      return -1;
    }
-   fseek(imgfile, 0, SEEK_SET);
-   char* img_data = malloc(imgsize); // just as a place holder for now
-   fread(img_data, imgsize, 1, imgfile);
+
    printf("=======================================================|\n");
    printf("|-----------------------   COMPLETED   -------------------------- |\n");
 
@@ -100,12 +94,12 @@ int naive_hide(){
 
    // If we have all the data, we can now start processing
    // step 1: the first 111111
-   img_data[0] = mod_last_bit(img_data[0], 1);
-   img_data[1] = mod_last_bit(img_data[1], 1);
-   img_data[2] = mod_last_bit(img_data[2], 1);
-   img_data[3] = mod_last_bit(img_data[3], 1);
-   img_data[4] = mod_last_bit(img_data[4], 1);
-   img_data[5] = mod_last_bit(img_data[5], 1);
+   im.data[0] = mod_last_bit(im.data[0], 1);
+   im.data[1] = mod_last_bit(im.data[1], 1);
+   im.data[2] = mod_last_bit(im.data[2], 1);
+   im.data[3] = mod_last_bit(im.data[3], 1);
+   im.data[4] = mod_last_bit(im.data[4], 1);
+   im.data[5] = mod_last_bit(im.data[5], 1);
    // step 2: the rest of the data
    int current_byte_pos = 0;
    int bit_counter = 0;
@@ -122,12 +116,12 @@ int naive_hide(){
       }
       if (consecutive_1_counter == 5){
         // we have written a 11111, next bit should be 0 anyway
-        img_data[img_byte_pos] = mod_last_bit(img_data[img_byte_pos], 0);
+        im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], 0);
         consecutive_1_counter = 0;
       }else{
         // write a regular data
         char next_bit = get_particular_bit(h_file_data[current_byte_pos], bit_counter);
-        img_data[img_byte_pos] = mod_last_bit(img_data[img_byte_pos], next_bit);
+        im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], next_bit);
         next_bit++;
         if (next_bit == 1){
           // increment the consecutive_1_counter
@@ -146,12 +140,12 @@ int naive_hide(){
       }
    }
    // now write the end of the data
-   img_data[img_byte_pos+0] = mod_last_bit(img_data[img_byte_pos+0], 1);
-   img_data[img_byte_pos+1] = mod_last_bit(img_data[img_byte_pos+1], 1);
-   img_data[img_byte_pos+2] = mod_last_bit(img_data[img_byte_pos+2], 1);
-   img_data[img_byte_pos+3] = mod_last_bit(img_data[img_byte_pos+3], 1);
-   img_data[img_byte_pos+4] = mod_last_bit(img_data[img_byte_pos+4], 1);
-   img_data[img_byte_pos+5] = mod_last_bit(img_data[img_byte_pos+5], 1);
+   im.data[img_byte_pos+0] = mod_last_bit(im.data[img_byte_pos+0], 1);
+   im.data[img_byte_pos+1] = mod_last_bit(im.data[img_byte_pos+1], 1);
+   im.data[img_byte_pos+2] = mod_last_bit(im.data[img_byte_pos+2], 1);
+   im.data[img_byte_pos+3] = mod_last_bit(im.data[img_byte_pos+3], 1);
+   im.data[img_byte_pos+4] = mod_last_bit(im.data[img_byte_pos+4], 1);
+   im.data[img_byte_pos+5] = mod_last_bit(im.data[img_byte_pos+5], 1);
    // now the image file should contain our hidden information. now we can output the image data
    printf("|\n");
    printf("|-----------------------------------------------COMPLETED------------------------------------------- |\n");
@@ -161,11 +155,12 @@ int naive_hide(){
 
    printf("|---------------------   OUTPUTING FILE   ------------------------- |\n");
    printf("|==========");
-
-
-
+   save_image(im, "phantom");
+   printf("|==========");
+   free_image(im);
    free(hf_name);
    free(img_name);
+   printf("\n\n                [SUCCESSFUL]\n");
 
 
 }
