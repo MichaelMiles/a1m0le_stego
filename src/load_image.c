@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "image.h"
+#include <math.h> 
 
 image make_empty_image(int w, int h, int c)
 {
@@ -17,7 +18,7 @@ image make_empty_image(int w, int h, int c)
 image make_image(int w, int h, int c)
 {
     image out = make_empty_image(w,h,c);
-    out.data = calloc(h*w*c, sizeof(float));
+    out.data = calloc(h*w*c, sizeof(char));
     return out;
 }
 
@@ -34,7 +35,7 @@ void save_image_stb(image im, const char *name)
     int i,k;
     for(k = 0; k < im.c; ++k){
         for(i = 0; i < im.w*im.h; ++i){
-            data[i*im.c+k] = (unsigned char) im.data[i + k*im.w*im.h];
+            data[i*im.c+k] = im.data[i + k*im.w*im.h];
         }
     }
     //int success = stbi_write_png(buff, im.w, im.h, im.c, data, im.w*im.c);
@@ -48,7 +49,7 @@ void save_image(image im, const char *name)
     save_image_stb(im, name);
 }
 
-// 
+//
 // Load an image using stb
 // channels = [0..4]
 // channels > 0 forces the image to have that many channels
@@ -70,7 +71,7 @@ image load_image_stb(char *filename, int channels)
             for(i = 0; i < w; ++i){
                 int dst_index = i + w*j + w*h*k;
                 int src_index = k + c*i + c*w*j;
-                im.data[dst_index] = data[src_index].;
+                im.data[dst_index] = data[src_index];
             }
         }
     }

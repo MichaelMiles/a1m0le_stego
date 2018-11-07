@@ -1,9 +1,10 @@
 #ifndef IMAGE_H
 #define IMAGE_H
+#include <math.h>
 
 typedef struct{
     int w,h,c;
-    float *data;
+    char *data;
 } image;
 
 
