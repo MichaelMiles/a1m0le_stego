@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include "image.h"
 
+#define LAST 1
+
 int naive_hide();
+int naive_extract();
 static char mod_last_bit(char original, char to);
 static char get_particular_bit(char byte, char position);
 static char* read_file_name(int* possibleSize);
@@ -15,18 +18,27 @@ int main(int argc, char** argv){
   printf("\nCurrently supported opertaions:\n");
   printf("         a. Hide data in an image file (using naive @1m0le)\n");
   printf("         b. Extract hidden data from an image file (using naive @1m0le)\n");
-  printf("\n You choose:\n\n");
+  printf("\n You choose:");
+  int possibleSize = 0;
+  char* choice = read_file_name(&possibleSize);
   // read user input
-
+  while (choice[0] != 'a' && choice[0] != 'b'){
+      printf("\n Invalid opetion, please re-choose:");
+      choice = read_file_name(&possibleSize);
+  }
   // branch out to hiding data
-  naive_hide();
+  if (choice[0] == 'a'){
+    naive_hide();
+  }else{
+    naive_extract();
+  }
 
 }
 
 
 // this procedure hides fata in a file
 int naive_hide(){
-   printf("Please enter the name of the file you want to hide: ");
+   printf("\n\nPlease enter the name of the file you want to hide: ");
    // read the name and try to file that file
    int possibleSize = 0;
    char* hf_name = read_file_name(&possibleSize);
@@ -47,10 +59,10 @@ int naive_hide(){
    fseek(hfile, 0, SEEK_SET);
    char* h_file_data = malloc(hfsize);
    printf("=============");
-   h_file_data[0] = 0xde;
-   h_file_data[1] = 0xad;
-   h_file_data[2] = 0xbe;
-   h_file_data[3] = 0xef;
+   h_file_data[0] = 'b';
+   h_file_data[1] = 'e';
+   h_file_data[2] = 'e';
+   h_file_data[3] = 'f';
    int actuall_read = 0;
    actuall_read = fread(&h_file_data[8], 1,hfsize-8, hfile);
    if (actuall_read != hfsize-8){
@@ -84,6 +96,9 @@ int naive_hide(){
    }
    printf("=======================================================|\n");
    printf("|-----------------------   COMPLETED   -------------------------- |\n");
+//   for (int i=0; i<10; i++){
+//     printf("got %d\n",im.data[i]);
+//   }
    printf("\n\n All files needed are set. Start the hidding process\n\n");
    printf("|----------------------------------------      Hiding Data     ------------------------------------- |\n");
    // If we have all the data, we can now start processing
@@ -105,10 +120,11 @@ int naive_hide(){
    fflush(stdout);
    while (current_byte_pos<hfsize){ // keep going as long as we still havent finished the last byte
       bar_counter++;
+
       if (bar_counter % 4 == 0 ){
         printf("*");
         if (bar_counter%400 ==0){
-          printf("|\n");
+          printf("|\n|");
         }
         fflush(stdout);
       }
@@ -139,12 +155,14 @@ int naive_hide(){
    }
    // now write the end of the data
 //   char backup =  im.data[img_byte_pos+0] ;
-   im.data[img_byte_pos+0] = mod_last_bit(im.data[img_byte_pos+0], 1);
+   im.data[img_byte_pos+0] = mod_last_bit(im.data[img_byte_pos+0], 0);// useless 0 to break the order
    im.data[img_byte_pos+1] = mod_last_bit(im.data[img_byte_pos+1], 1);
    im.data[img_byte_pos+2] = mod_last_bit(im.data[img_byte_pos+2], 1);
    im.data[img_byte_pos+3] = mod_last_bit(im.data[img_byte_pos+3], 1);
    im.data[img_byte_pos+4] = mod_last_bit(im.data[img_byte_pos+4], 1);
    im.data[img_byte_pos+5] = mod_last_bit(im.data[img_byte_pos+5], 1);
+   im.data[img_byte_pos+6] = mod_last_bit(im.data[img_byte_pos+6], 1);
+
    // now the image file should contain our hidden information. now we can output the image data
    printf("|\n");
    printf("|-----------------------------------------------COMPLETED------------------------------------------- |\n");
@@ -157,16 +175,157 @@ int naive_hide(){
    free(hf_name);
    free(img_name);
    printf("\n                   [SUCCESSFUL]\n");
+   for (int i=0; i<hfsize; i++){
+  //   printf(" %d",h_file_data[i]);
+   }
 
+//for (int i=0; i<10; i++){
+//  printf("got %d\n",im.data[i]);
+//}
 //   printf("Is it?? %d %d\n", im.data[img_byte_pos], backup);
    free_image(im);
 
    return 0;
 }
 
+static char flag_bit(char byte){
+   return !(!(byte & LAST));
+}
+
+static char mod_particular_bit(char byte, char bit, char pos){
+  if (bit == 0){
+    char mask = 1 << pos;
+    mask = ~mask;
+    return byte & mask;
+  }else{
+    char mask = 1 << pos;
+    return byte | mask;
+  }
+}
 
 // this method extract the data hidden in a image
 int naive_extract(){
+  // read the image file
+  printf("\n\nPlease enter the name of the image file with hidden data: ");
+  // read the name and try to file that file
+  int possibleSize;
+  char* img_name = read_file_name(&possibleSize);
+  if (img_name == NULL){
+    printf("[ERROR] filename is not entered, terminating........\n");
+    return -1;
+  }
+  printf("|---------------------   READING FILE   ------------------------- |\n");
+  printf("|==========");
+  image im = load_image(img_name);
+  printf("=======================================================|\n");
+  printf("|-----------------------   COMPLETED   -------------------------- |\n");
+  printf("\n\n Image received. identifing validity information.......\n");
+  char* buffer = (char*)malloc((im.w*im.h*im.c)/7); // cant go wrong with this size!!!!!
+  char byte_buf = 0;
+  char bits_written = 0;
+  char consecutive_1_counter = 0;
+  char flag_detected = 0;
+  int next_img_byte = 6;
+  int bar_counter = 0;
+  char start_flag = (flag_bit(im.data[0])) & (flag_bit(im.data[1])) & (flag_bit(im.data[2])) & (flag_bit(im.data[3])) & (flag_bit(im.data[4])) & (flag_bit(im.data[5]));
+  if (start_flag != 1){
+    printf("\n[ERROR] Data-start flag not found, terminating.........\n");
+    for (int i=0; i<10; i++){
+      printf("got %d\n",im.data[i]);
+    }
+    return -1;
+  }
+  printf("\nData-start-flag detected, starts extracting data\n\n");
+    printf("|----------------------------------------      Extracting Data     ----------------------------------|\n");
+  int bytes_read = 0;
+   printf("|");
+  while (flag_detected != 1 && bytes_read<(im.w*im.h*im.c)/7-4){ // have some space to prevent oveflowing
+    // now starts for each byte in the image
+    char bit_got = flag_bit(im.data[next_img_byte]);
+    //printf("%d",bit_got);
+    if (consecutive_1_counter == 5){
+      // we have seen 5 1s before, the next bit is either a zero to omit or the end of the message
+      if (bit_got == 1){
+        // we have a flag to exit
+        flag_detected = 1;
+      }else{
+        consecutive_1_counter = 0;
+      }
+    }else{
+       // it is a normal bit to be read
+       if (bit_got == 1){
+       // we received a one, increment the consecutive_1_counter
+       consecutive_1_counter++;
+     }else{
+       consecutive_1_counter =0;
+     }
+       byte_buf = mod_particular_bit(byte_buf, bit_got, bits_written);
+       bits_written++;
+       if (bits_written == 8){
+         // we have written 8 bits, reset, and extract as a byte
+         bits_written = 0;
+         buffer[bytes_read] = byte_buf;
+         bytes_read++;
+       }
+    }
+    bar_counter++;
+    if (bar_counter % 4 == 0 ){
+      printf("*");
+      if (bar_counter%400 ==0){
+        printf("|\n|");
+      }
+      fflush(stdout);
+    }
+    next_img_byte ++;
+  }
+  if (flag_detected != 1){
+    // data has no end
+    printf("\n[ERROR] No End detected, data is incomplete. terminating.......\n");
+    return -1;
+  }
+  printf("\n\nData received, checking the first 4 byte for magical key:  ");
+  if (buffer[0] != 'b'  || buffer[1] != 'e' || buffer[2] != 'e'  || buffer[3]!= 'f'){
+    // the magical work is wrong
+    printf(" INCORRECT\n");
+    printf("\nExtraction failed, terminating....................\n");
+    return -1;
+  }
+
+  printf("CORRECT :-)\n");
+  printf("Checking the integrity of the file:");
+  uint32_t expect_checksum = *((uint32_t*)&buffer[4]);
+  uint32_t actual_checksum = 0;
+  for (int i = 8; i<bytes_read; i++){
+    actual_checksum += buffer[i];  // naively calculate the checksum
+  }
+  if (expect_checksum != actual_checksum){
+    printf(" INCORRECT\n");
+    printf("\nExtraction failed, terminating....................\n");
+    return -1;
+  }
+  printf("CORRECT :-)\n");
+
+printf("\nPlease enter the name for the output file:");
+
+  char* outname = read_file_name(&possibleSize);
+  if (img_name == NULL){
+    printf("[WARNNING] filename is not entered, using default name out.txt\n");
+    printf("\nOutputing data to file ./out.txt\n");
+    FILE* output = fopen("out.txt","wb");
+    fwrite(&buffer[8], 1, bytes_read-8, output);
+    fclose(output);
+  }else{
+
+      printf("\nOutputing data to file ./%s\n",outname);
+      FILE* output = fopen(outname,"wb");
+      fwrite(&buffer[8], 1, bytes_read-8, output);
+      fclose(output);
+  }
+
+printf("\n                   [SUCCESSFUL]\n");
+for (int i=0; i<bytes_read; i++){
+  //printf(" %d",buffer[i]);
+}
 
 return 0;
 
@@ -183,12 +342,14 @@ static char get_particular_bit(char byte, char position){
 
 
 
+
 // modify the last bit of a particular data
 static char mod_last_bit(char original, char to){
+  // printf("%d",to);
    if (to == 0){
-     return original & (~((char)1));
+     return original & (~((char)LAST));
    } else{
-     return original | 1;
+     return original | LAST;
    }
 }
 

@@ -30,7 +30,7 @@ image make_image(int w, int h, int c)
 void save_image_stb(image im, const char *name)
 {
     char buff[256];
-    sprintf(buff, "%s.jpg", name);
+    sprintf(buff, "%s.png", name);
     unsigned char *data = calloc(im.w*im.h*im.c, sizeof(char));
     int i,k;
     for(k = 0; k < im.c; ++k){
@@ -38,8 +38,8 @@ void save_image_stb(image im, const char *name)
             data[i*im.c+k] = im.data[i + k*im.w*im.h];
         }
     }
-    //int success = stbi_write_png(buff, im.w, im.h, im.c, data, im.w*im.c);
-    int success = stbi_write_jpg(buff, im.w, im.h, im.c, data, 100);
+    int success = stbi_write_png(buff, im.w, im.h, im.c, data, im.w*im.c);
+   // int success = stbi_write_jpg(buff, im.w, im.h, im.c, data, 100);
     free(data);
     if(!success) fprintf(stderr, "Failed to write image %s\n", buff);
 }
