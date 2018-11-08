@@ -165,12 +165,19 @@ int naive_hide(){
 
    // now the image file should contain our hidden information. now we can output the image data
    printf("|\n");
-   printf("|-----------------------------------------------COMPLETED------------------------------------------- |\n");
+   printf("|-----------------------------------------------COMPLETED------------------------------------------- |\n\n");
    // operations completed
-   printf("\n\nData has been hidden, now outputing file.................\n");
+   printf("Please enter the image name you want to output(no extension name):");
+   char* outname = read_file_name(&possibleSize);
+   if (img_name == NULL){
+     printf("[WARNNING] filename is not entered, using default name phantom\n");
+     outname = "phantom";
+   }else{
+   }
+   printf("\n\nOutputing file.................\n");
    printf("|---------------------   OUTPUTING FILE   ------------------------- |\n");
    printf("|==========");
-   save_image(im, "phantom");
+   save_image(im, outname);
    printf("=========================================================|\n");
    free(hf_name);
    free(img_name);
