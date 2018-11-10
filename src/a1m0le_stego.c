@@ -10,7 +10,7 @@ int naive_hide();
 int naive_extract();
 static char mod_last_bit(char original, char to);
 static char get_particular_bit(char byte, char position);
-static char* read_file_name(int* possibleSize);
+static char* read_file_name(char* possibleSize);
 int main(int argc, char** argv){
   // the main execution of the program
   printf("\n\n");
@@ -19,7 +19,7 @@ int main(int argc, char** argv){
   printf("         a. Hide data in an image file (using naive @1m0le)\n");
   printf("         b. Extract hidden data from an image file (using naive @1m0le)\n");
   printf("\n You choose:");
-  int possibleSize = 0;
+  char possibleSize = 0;
   char* choice = read_file_name(&possibleSize);
   // read user input
   while (choice[0] != 'a' && choice[0] != 'b'){
@@ -40,32 +40,47 @@ int main(int argc, char** argv){
 int naive_hide(){
    printf("\n\nPlease enter the name of the file you want to hide: ");
    // read the name and try to file that file
-   int possibleSize = 0;
-   char* hf_name = read_file_name(&possibleSize);
+   char hf_name_size = 0;
+   char* hf_name = read_file_name(&hf_name_size);
    if (hf_name == NULL){
      printf("[ERROR] filename is not entered, terminating........\n");
      return -1;
    }
-   FILE* hfile = fopen(hf_name, "rb");
+   if (hf_name_size > 250){
+     printf("[ERROR] filename length is over 250 characters, terminating.......]");
+     return -1;
+   }
+   // base on the name to open the files
+   char hf_path[256];
+   sprintf(hf_path, "./input/%s", hf_name);
+   hf_path[8+(int)hf_name_size] = '\0';
+   FILE* hfile = fopen(hf_path, "rb");
    if (hfile == NULL){
      printf("[ERROR] Unbale to read the file you just provided\n");
      return -1;
    }
+
    printf("|---------------------   READING FILE   ------------------------- |\n");
    printf("|==========");
    fseek(hfile, 0, SEEK_END);
-   int hfsize = ftell(hfile); // this size should be 4+fileszie+4 (0xDEADBEEF and 4-byte checksum)
-   hfsize += 8;
-   fseek(hfile, 0, SEEK_SET);
+   int hfsize = ftell(hfile); // this size should be 4+fileszie+4 (0xDEADBEEF and 4-byte checksum)+hf_name_size + 1 (for the length of the )
+   hfsize += 8 + hf_name_size+1;
+   fseek(hfile, 0, SEEK_SET); // reset the file reading pointer
    char* h_file_data = malloc(hfsize);
    printf("=============");
    h_file_data[0] = 'b';
    h_file_data[1] = 'e';
    h_file_data[2] = 'e';
-   h_file_data[3] = 'f';
+   h_file_data[3] = 'f'; // write the magical words
+   for (char i=0; i<hf_name_size; i++){
+     // data[8] is for the size of the name, then write the name;
+     h_file_data[i+9] = hf_name[(int)i];
+   }
+   h_file_data[8] = hf_name_size;
    int actuall_read = 0;
-   actuall_read = fread(&h_file_data[8], 1,hfsize-8, hfile);
-   if (actuall_read != hfsize-8){
+   // starts the file reading from h_file_data[9+hf_name_size] because the previousbytes are reserved.
+   actuall_read = fread(&h_file_data[9+hf_name_size], 1,hfsize-8, hfile);
+   if (actuall_read != hfsize-8-1-hf_name_size){
      printf("DID NOT READ THE WHOLE FILE actual=%d  expect=%d\n",actuall_read,hfsize);
      return -1;
    }
@@ -81,14 +96,19 @@ int naive_hide(){
    // now the image file
    printf("\n\nPlease enter the name of the image file to store the hidden: ");
    // read the name and try to file that file
-   char* img_name = read_file_name(&possibleSize);
+   char img_name_size;
+   char* img_name = read_file_name(&img_name_size);
+
    if (img_name == NULL){
      printf("[ERROR] filename is not entered, terminating........\n");
      return -1;
    }
    printf("|---------------------   READING FILE   ------------------------- |\n");
    printf("|==========");
-   image im = load_image(img_name);
+   char img_path[256];
+    sprintf(img_path, "./input/%s", img_name);
+    img_path[8+(int)img_name_size] = '\0';
+   image im = load_image(img_path);
    int imgsize = im.w*im.h*im.c; // the size of the entire image
    if (imgsize < 12+8*(hfsize)){    // if img has total bytes less than 6+8*(4+4+hideen_size)+6, then cancel all operations and print error message
      printf("[ERROR] Image file is not large enough to store the data\n");
@@ -119,8 +139,11 @@ int naive_hide(){
    printf("|");
    fflush(stdout);
    while (current_byte_pos<hfsize){ // keep going as long as we still havent finished the last byte
+     if (img_byte_pos>=imgsize){
+       // oops, we have run out of data. report error and exit
+       printf("\n[ERROR] The image file turns out to be not enough, please try another image file");
+     }
       bar_counter++;
-
       if (bar_counter % 4 == 0 ){
         printf("*");
         if (bar_counter%400 ==0){
@@ -154,7 +177,11 @@ int naive_hide(){
       img_byte_pos++;
    }
    // now write the end of the data
-//   char backup =  im.data[img_byte_pos+0] ;
+   //   char backup =  im.data[img_byte_pos+0] ;
+   if (img_byte_pos+6>=imgsize){
+     // oops, we have run out of data. report error and exit
+    printf("\n[ERROR] The image file turns out to be not enough, please try another image file");
+  }
    im.data[img_byte_pos+0] = mod_last_bit(im.data[img_byte_pos+0], 0);// useless 0 to break the order
    im.data[img_byte_pos+1] = mod_last_bit(im.data[img_byte_pos+1], 1);
    im.data[img_byte_pos+2] = mod_last_bit(im.data[img_byte_pos+2], 1);
@@ -168,16 +195,21 @@ int naive_hide(){
    printf("|-----------------------------------------------COMPLETED------------------------------------------- |\n\n");
    // operations completed
    printf("Please enter the image name you want to output(no extension name):");
-   char* outname = read_file_name(&possibleSize);
+   char out_size;
+   char* outname = read_file_name(&out_size);
    if (img_name == NULL){
      printf("[WARNNING] filename is not entered, using default name phantom\n");
      outname = "phantom";
    }else{
    }
+
    printf("\n\nOutputing file.................\n");
    printf("|---------------------   OUTPUTING FILE   ------------------------- |\n");
    printf("|==========");
-   save_image(im, outname);
+   char out_path[256];
+    sprintf(out_path, "./output/%s", outname);
+    out_path[9+(int)out_size] = '\0';
+   save_image(im, out_path);
    printf("=========================================================|\n");
    free(hf_name);
    free(img_name);
@@ -215,15 +247,18 @@ int naive_extract(){
   // read the image file
   printf("\n\nPlease enter the name of the image file with hidden data: ");
   // read the name and try to file that file
-  int possibleSize;
-  char* img_name = read_file_name(&possibleSize);
+  char img_name_size;
+  char* img_name = read_file_name(&img_name_size);
   if (img_name == NULL){
     printf("[ERROR] filename is not entered, terminating........\n");
     return -1;
   }
   printf("|---------------------   READING FILE   ------------------------- |\n");
   printf("|==========");
-  image im = load_image(img_name);
+  char img_path[256];
+   sprintf(img_path, "./input/%s", img_name);
+   img_path[8+(int)img_name_size] = '\0';
+  image im = load_image(img_path);
   printf("=======================================================|\n");
   printf("|-----------------------   COMPLETED   -------------------------- |\n");
   printf("\n\n Image received. identifing validity information.......\n");
@@ -312,22 +347,21 @@ int naive_extract(){
   }
   printf("CORRECT :-)\n");
 
-printf("\nPlease enter the name for the output file:");
 
-  char* outname = read_file_name(&possibleSize);
-  if (img_name == NULL){
-    printf("[WARNNING] filename is not entered, using default name out.txt\n");
-    printf("\nOutputing data to file ./out.txt\n");
-    FILE* output = fopen("out.txt","wb");
-    fwrite(&buffer[8], 1, bytes_read-8, output);
-    fclose(output);
-  }else{
-
-      printf("\nOutputing data to file ./%s\n",outname);
-      FILE* output = fopen(outname,"wb");
-      fwrite(&buffer[8], 1, bytes_read-8, output);
-      fclose(output);
+  char name_size = buffer[8];
+  char outname[256];
+  for (char i = 0; i<name_size; i++){
+      outname[(int)i] = buffer[(int)i+9];
   }
+  outname[(int)name_size] = '\0';
+  char out_path[512];
+   sprintf(out_path, "./output/%s", outname);
+   out_path[9+(int)name_size] = '\0';
+      printf("\nOutputing data to file %s\n",out_path);
+      FILE* output = fopen(out_path,"wb");
+      fwrite(&buffer[9+name_size], 1, bytes_read-9-name_size, output);
+      fclose(output);
+
 
 printf("\n                   [SUCCESSFUL]\n");
 for (int i=0; i<bytes_read; i++){
@@ -338,6 +372,7 @@ return 0;
 
 }
 
+// I want to have 3-bit hiding, ***namesaving, and data_map_region visualization implemented. (REMEMBER TO CAHNGE README AS WELL !!!!!!!!!!!!!!!!!!!!)
 
 // extract a particular bit
 static char get_particular_bit(char byte, char position){
@@ -361,11 +396,10 @@ static char mod_last_bit(char original, char to){
 }
 
 
-static char* read_file_name(int* possibleSize){
+static char* read_file_name(char* possibleSize){
   int size = 256;  // common max input length
   char* query = (char*)malloc(size);
-  int read_bytes = 0;
-  int wordsPossible = 1;
+  char read_bytes = 0;
   do {
     if (read_bytes == size) {
       // not enough space, reallocate
@@ -385,13 +419,13 @@ static char* read_file_name(int* possibleSize){
     }
     if (c == '\n') {
         // we have finished reading something
-        query[read_bytes] = '\0';
-        *possibleSize = wordsPossible;
+        query[(int)read_bytes] = '\0';
+        *possibleSize = read_bytes;
         return query;
     } else {
       // we have captured a character
       // set the query first
-      query[read_bytes] = c;
+      query[(int)read_bytes] = c;
       read_bytes++;
       // if it is not a alphabet
       // increment wordsPossibl
