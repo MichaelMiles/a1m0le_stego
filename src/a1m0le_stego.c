@@ -109,6 +109,7 @@ int naive_hide(){
     sprintf(img_path, "./input/%s", img_name);
     img_path[8+(int)img_name_size] = '\0';
    image im = load_image(img_path);
+   image region = load_image(img_path); // ***** REGION MAPPING *****
    int imgsize = im.w*im.h*im.c; // the size of the entire image
    if (imgsize < 12+8*(hfsize)){    // if img has total bytes less than 6+8*(4+4+hideen_size)+6, then cancel all operations and print error message
      printf("[ERROR] Image file is not large enough to store the data\n");
@@ -154,11 +155,13 @@ int naive_hide(){
       if (consecutive_1_counter == 5){
         // we have written a 11111, next bit should be 0 anyway
         im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], 0);
+        region.data[img_byte_pos] = 0; // ***** REGION MAPPING *****
         consecutive_1_counter = 0;
       }else{
         // write a regular data
         char next_bit = get_particular_bit(h_file_data[current_byte_pos], bit_counter);
         im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], next_bit);
+        region.data[img_byte_pos] = next_bit * 255; // ***** REGION MAPPING *****
         bit_counter++;
         if (next_bit == 1){
           // increment the consecutive_1_counter
@@ -210,6 +213,7 @@ int naive_hide(){
     sprintf(out_path, "./output/%s", outname);
     out_path[9+(int)out_size] = '\0';
    save_image(im, out_path);
+   save_image(region, "./mapped_region");
    printf("=========================================================|\n");
    free(hf_name);
    free(img_name);
