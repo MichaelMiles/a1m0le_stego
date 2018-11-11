@@ -113,7 +113,7 @@ int naive_hide(){
    image im = load_image(img_path);
    image region = load_image(img_path); // ***** REGION MAPPING *****
    int imgsize = im.w*im.h*im.c; // the size of the entire image
-   if (imgsize < 12+8*(hfsize)){    // if img has total bytes less than 6+8*(4+4+hideen_size)+6, then cancel all operations and print error message
+   if (imgsize < 12+3*(hfsize)){    // if img has total bytes less than 6+8*(4+4+hideen_size)+6, then cancel all operations and print error message
      printf("[ERROR] Image file is not large enough to store the data\n");
      return -1;
    }
