@@ -4,13 +4,15 @@
 #include <stdint.h>
 #include "image.h"
 
-#define LAST 1
+#define LAST 3
 
 int naive_hide();
 int naive_extract();
-static char mod_last_bit(char original, char to);
+//static char mod_last_bit(char original, char to);
 static char get_particular_bit(char byte, char position);
 static char* read_file_name(char* possibleSize);
+static char mod_particular_bit(char byte, char bit, char pos);
+
 int main(int argc, char** argv){
   // the main execution of the program
   printf("\n\n");
@@ -124,18 +126,18 @@ int naive_hide(){
    printf("|----------------------------------------      Hiding Data     ------------------------------------- |\n");
    // If we have all the data, we can now start processing
    // step 1: the first 111111
-   im.data[0] = mod_last_bit(im.data[0], 1);
-   im.data[1] = mod_last_bit(im.data[1], 1);
-   im.data[2] = mod_last_bit(im.data[2], 1);
-   im.data[3] = mod_last_bit(im.data[3], 1);
-   im.data[4] = mod_last_bit(im.data[4], 1);
-   im.data[5] = mod_last_bit(im.data[5], 1);
-
+   im.data[0] = mod_particular_bit(im.data[0],1, 0);
+   im.data[0] = mod_particular_bit(im.data[0],1, 1);
+   im.data[0] = mod_particular_bit(im.data[0],1, 2);
+   im.data[1] = mod_particular_bit(im.data[1],1, 0);
+   im.data[1] = mod_particular_bit(im.data[1],1, 1);
+   im.data[1] = mod_particular_bit(im.data[1],1, 2);
+   char internal_bit_counter = 0;
    // step 2: the rest of the data
    int current_byte_pos = 0;
    int bit_counter = 0;
    int consecutive_1_counter = 0;
-   int img_byte_pos = 6;
+   int img_byte_pos = 2;
    int bar_counter = 0;
    printf("|");
    fflush(stdout);
@@ -154,13 +156,15 @@ int naive_hide(){
       }
       if (consecutive_1_counter == 5){
         // we have written a 11111, next bit should be 0 anyway
-        im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], 0);
+        im.data[img_byte_pos] = mod_particular_bit(im.data[img_byte_pos], 0,internal_bit_counter);
+        internal_bit_counter++;
         region.data[img_byte_pos] = 0; // ***** REGION MAPPING *****
         consecutive_1_counter = 0;
       }else{
         // write a regular data
         char next_bit = get_particular_bit(h_file_data[current_byte_pos], bit_counter);
-        im.data[img_byte_pos] = mod_last_bit(im.data[img_byte_pos], next_bit);
+        im.data[img_byte_pos] = mod_particular_bit(im.data[img_byte_pos], next_bit, internal_bit_counter);
+        internal_bit_counter++;
         region.data[img_byte_pos] = next_bit * 255; // ***** REGION MAPPING *****
         bit_counter++;
         if (next_bit == 1){
@@ -177,7 +181,11 @@ int naive_hide(){
         }
         // this is the opertaions needed for each byte.
       }
-      img_byte_pos++;
+      if (internal_bit_counter >= LAST){
+          img_byte_pos++;
+          internal_bit_counter = 0;
+      }
+
    }
    // now write the end of the data
    //   char backup =  im.data[img_byte_pos+0] ;
@@ -185,13 +193,15 @@ int naive_hide(){
      // oops, we have run out of data. report error and exit
     printf("\n[ERROR] The image file turns out to be not enough, please try another image file");
   }
-   im.data[img_byte_pos+0] = mod_last_bit(im.data[img_byte_pos+0], 0);// useless 0 to break the order
-   im.data[img_byte_pos+1] = mod_last_bit(im.data[img_byte_pos+1], 1);
-   im.data[img_byte_pos+2] = mod_last_bit(im.data[img_byte_pos+2], 1);
-   im.data[img_byte_pos+3] = mod_last_bit(im.data[img_byte_pos+3], 1);
-   im.data[img_byte_pos+4] = mod_last_bit(im.data[img_byte_pos+4], 1);
-   im.data[img_byte_pos+5] = mod_last_bit(im.data[img_byte_pos+5], 1);
-   im.data[img_byte_pos+6] = mod_last_bit(im.data[img_byte_pos+6], 1);
+  for (int ii = 0; ii<6; ii++){
+    im.data[img_byte_pos] = mod_particular_bit(im.data[img_byte_pos], 1,internal_bit_counter);
+    internal_bit_counter++;
+    if (internal_bit_counter >= LAST){
+        img_byte_pos++;
+        internal_bit_counter = 0;
+    }
+  }
+
 
    // now the image file should contain our hidden information. now we can output the image data
    printf("|\n");
@@ -231,8 +241,8 @@ int naive_hide(){
    return 0;
 }
 
-static char flag_bit(char byte){
-   return !(!(byte & LAST));
+static char flag_bit(char byte, char pos){
+   return !(!(byte & (1<<pos)));
 }
 
 static char mod_particular_bit(char byte, char bit, char pos){
@@ -271,9 +281,9 @@ int naive_extract(){
   char bits_written = 0;
   char consecutive_1_counter = 0;
   char flag_detected = 0;
-  int next_img_byte = 6;
+  int next_img_byte = 2;
   int bar_counter = 0;
-  char start_flag = (flag_bit(im.data[0])) & (flag_bit(im.data[1])) & (flag_bit(im.data[2])) & (flag_bit(im.data[3])) & (flag_bit(im.data[4])) & (flag_bit(im.data[5]));
+  char start_flag = (flag_bit(im.data[0],0)) & (flag_bit(im.data[0],1)) & (flag_bit(im.data[0],2)) & (flag_bit(im.data[1],0)) & (flag_bit(im.data[1],1)) & (flag_bit(im.data[1],2));
   if (start_flag != 1){
     printf("\n[ERROR] Data-start flag not found, terminating.........\n");
     for (int i=0; i<10; i++){
@@ -285,9 +295,11 @@ int naive_extract(){
     printf("|----------------------------------------      Extracting Data     ----------------------------------|\n");
   int bytes_read = 0;
    printf("|");
+  char internal_bit_counter  = 0;
   while (flag_detected != 1 && bytes_read<(im.w*im.h*im.c)/7-4){ // have some space to prevent oveflowing
     // now starts for each byte in the image
-    char bit_got = flag_bit(im.data[next_img_byte]);
+    char bit_got = flag_bit(im.data[next_img_byte], internal_bit_counter);
+    internal_bit_counter++;
     //printf("%d",bit_got);
     if (consecutive_1_counter == 5){
       // we have seen 5 1s before, the next bit is either a zero to omit or the end of the message
@@ -322,7 +334,10 @@ int naive_extract(){
       }
       fflush(stdout);
     }
-    next_img_byte ++;
+    if (internal_bit_counter >= LAST){
+      next_img_byte ++;
+      internal_bit_counter = 0;
+    }
   }
   if (flag_detected != 1){
     // data has no end
@@ -390,14 +405,14 @@ static char get_particular_bit(char byte, char position){
 
 
 // modify the last bit of a particular data
-static char mod_last_bit(char original, char to){
+//static char mod_last_bit(char original, char to){
   // printf("%d",to);
-   if (to == 0){
-     return original & (~((char)LAST));
-   } else{
-     return original | LAST;
-   }
-}
+//   if (to == 0){
+//     return original & (~((char)LAST));
+//   } else{
+//     return original | LAST;
+//   }
+//}
 
 
 static char* read_file_name(char* possibleSize){
