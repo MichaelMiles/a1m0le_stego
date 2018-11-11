@@ -15,8 +15,10 @@ provide the files needed as instructed:
     * all output files will be in the `output` folder (`build/output`).
 
 ## Update History
-Nov. 8th, 2018: naive version works on hidding image or executables in another image. size is still limited to 8x.
+**Nov. 8th, 2018**: naive version works on hidding image or executables in another image. size is still limited to 8x.
 
-Nov. 9th, 2018: The original file's name can be prevsered now (no need to provide it during extraction). Also added the input/output folder. 
+**Nov. 9th, 2018**: The original file's name can be prevsered now (no need to provide it during extraction). Also added the input/output folder. 
 
-Nov. 10th, 2018: Added functionality to see how much o the image is used to map data.
+**Nov. 10th, 2018**: Added functionality to see how much o the image is used to map data.
+
+**Nov. 10th, 2018**: The size limit has gone down to 3x (100KB data in 300KB image)
